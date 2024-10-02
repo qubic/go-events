@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package qubic.events;
+
+option go_package = "github.com/qubic/go-events/eventspb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+message Event {
+  message Header {
+    uint32 epoch = 1;
+    uint32 tick = 2;
+    uint32 tmp = 3;
+    uint64 event_id = 4;
+    uint64 event_digest = 5;
+  }
+
+  Header header = 1;
+  uint32 event_type = 2;
+  uint32 event_size = 3;
+  string event_data = 4;
+}
+
+message TransactionEvents {
+  string tx_id = 1;
+  repeated Event events = 2;
+}
+
+message TickEvents {
+  uint32 tick = 1;
+  repeated TransactionEvents tx_events = 2;
+}
+
+message ProcessedTick {
+  uint32 tick_number = 1;
+  uint32 epoch = 2;
+}
+
+message LastProcessedTick {
+  uint32 last_processed_tick = 1;
+}
+
+message NextAvailableTick {
+  uint32 next_tick_number = 1;
+}
+
+message SkippedTicksInterval {
+  uint32 start_tick = 1;
+  uint32 end_tick = 2;
+}
+
+message SkippedTicksIntervalList {
+  repeated SkippedTicksInterval skipped_ticks = 1;
+}
+
+message ProcessedTickInterval {
+  uint32 initial_processed_tick = 1;
+  uint32 last_processed_tick = 2;
+}
+
+message ProcessedTickIntervalsPerEpoch {
+  uint32 epoch = 1;
+  repeated ProcessedTickInterval intervals = 2;
+}
+
+message GetTickEventsRequest {
+  uint32 tick = 1;
+}
+
+message GetTickProcessTimeRequest {
+  uint32 tick = 1;
+}
+
+message GetTickProcessTimeResponse {
+  uint64 process_time_seconds = 1;
+}
+
+message GetStatusResponse {
+  ProcessedTick last_processed_tick = 1;
+  map<uint32, uint32> last_processed_ticks_per_epoch = 2;
+  repeated SkippedTicksInterval skipped_ticks = 3;
+  repeated ProcessedTickIntervalsPerEpoch processed_tick_intervals_per_epoch = 4;
+}
+
+service EventsService {
+  rpc GetTickEvents(GetTickEventsRequest) returns (TickEvents) {
+    option (google.api.http) = {
+      post: "/v1/events/getTickEvents"
+      body: "*"
+    };
+  }
+
+  rpc GetStatus(google.protobuf.Empty) returns (GetStatusResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/status"
+    };
+  }
+
+  rpc GetTickProcessTime(GetTickProcessTimeRequest) returns (GetTickProcessTimeResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/getTickProcessTime"
+      body: "*"
+    };
+  }
+}

@@ -8,34 +8,41 @@ import (
 	eventspb "github.com/qubic/go-events/proto"
 	qubicpb "github.com/qubic/go-qubic/proto/v1"
 	"google.golang.org/protobuf/proto"
-	"strconv"
 )
 
-const maxTickNumber = ^uint64(0)
+const maxTickNumber, maxEpochNumber = ^uint64(0), ^uint64(0)
 
 var ErrNotFound = errors.New("store resource not found")
 
-type Store struct {
-	db *pebble.DB
+type EventsStore struct {
+	db KVStore
 }
 
-func NewStore(db *pebble.DB) *Store {
-	return &Store{
+type KVStore interface {
+	Get(ctx context.Context, key []byte) ([]byte, error)
+	Set(ctx context.Context, key []byte, value []byte) error
+	SetOrdered(ctx context.Context, collection []byte, index uint64, value []byte) error
+	GetOrderedRange(ctx context.Context, collection []byte, start, end uint64) ([][]byte, error)
+	GetOrderedSingle(ctx context.Context, collection []byte, index uint64) ([]byte, error)
+	BatchSet(ctx context.Context, kvPairs map[string][]byte) error
+}
+
+func NewEventsStore(db KVStore) *EventsStore {
+	return &EventsStore{
 		db: db,
 	}
 }
 
-func (s *Store) GetTickEvents(tickNumber uint32) (*qubicpb.TickEvents, error) {
+func (s *EventsStore) GetTickEvents(ctx context.Context, tickNumber uint32) (*qubicpb.TickEvents, error) {
 	key := tickEventsKey(tickNumber)
-	value, closer, err := s.db.Get(key)
+	value, err := s.db.GetOrderedSingle(ctx, key)
 	if err != nil {
-		if errors.Is(err, pebble.ErrNotFound) {
+		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNotFound
 		}
 
 		return nil, errors.Wrap(err, "getting tick data")
 	}
-	defer closer.Close()
 
 	var te qubicpb.TickEvents
 	if err := proto.Unmarshal(value, &te); err != nil {
@@ -45,27 +52,24 @@ func (s *Store) GetTickEvents(tickNumber uint32) (*qubicpb.TickEvents, error) {
 	return &te, nil
 }
 
-func (s *Store) GetTickProcessTime(tickNumber uint32) (uint64, error) {
-	key := tickProcessTimeKey(tickNumber)
-	value, closer, err := s.db.Get(key)
+func (s *EventsStore) GetTickProcessTime(ctx context.Context, tickNumber uint32) (uint64, error) {
+	value, err := s.db.GetOrderedSingle(ctx, []byte{TickProcessTimeCollection}, int64(tickNumber))
 	if err != nil {
-		if errors.Is(err, pebble.ErrNotFound) {
+		if errors.Is(err, ErrNotFound) {
 			return 0, ErrNotFound
 		}
 
 		return 0, errors.Wrap(err, "getting tick process time")
 	}
-	defer closer.Close()
 
 	return binary.LittleEndian.Uint64(value), nil
 }
 
-func (s *Store) SetTickProcessTime(tickNumber uint32, processTime uint64) error {
-	key := tickProcessTimeKey(tickNumber)
+func (s *EventsStore) SetTickProcessTime(ctx context.Context, tickNumber uint32, processTime uint64) error {
 	value := make([]byte, 8)
 	binary.LittleEndian.PutUint64(value, processTime)
 
-	err := s.db.Set(key, value, pebble.Sync)
+	err := s.db.SetOrdered(ctx, []byte{TickProcessTimeCollection}, int64(tickNumber), value)
 	if err != nil {
 		return errors.Wrap(err, "setting tick process time")
 	}
@@ -73,14 +77,13 @@ func (s *Store) SetTickProcessTime(tickNumber uint32, processTime uint64) error 
 	return nil
 }
 
-func (s *Store) SetTickEvents(tickNumber uint32, te *qubicpb.TickEvents) error {
-	key := tickEventsKey(tickNumber)
-	serialized, err := proto.Marshal(te)
+func (s *EventsStore) SetTickEvents(ctx context.Context, tickNumber uint32, te *qubicpb.TickEvents) error {
+	value, err := proto.Marshal(te)
 	if err != nil {
 		return errors.Wrap(err, "serializing tick events proto")
 	}
 
-	err = s.db.Set(key, serialized, pebble.Sync)
+	err = s.db.SetOrdered(ctx, []byte{TickEventsCollection}, int64(tickNumber), value)
 	if err != nil {
 		return errors.Wrap(err, "setting tick events")
 	}
@@ -88,33 +91,34 @@ func (s *Store) SetTickEvents(tickNumber uint32, te *qubicpb.TickEvents) error {
 	return nil
 }
 
-func (s *Store) SetLastProcessedTick(ctx context.Context, lastProcessedTick *eventspb.ProcessedTick) error {
-	batch := s.db.NewBatch()
-	defer batch.Close()
+type StatusStore struct {
+	db KVStore
+}
+
+func NewStatusStore(db KVStore) *StatusStore {
+	return &StatusStore{
+		db: db,
+	}
+}
+
+func (s *StatusStore) SetLastProcessedTick(ctx context.Context, lastProcessedTick *eventspb.ProcessedTick) error {
+	kvPairs := make(map[string][]byte)
 
 	key := lastProcessedTickKeyPerEpoch(lastProcessedTick.Epoch)
 	value := make([]byte, 4)
 	binary.LittleEndian.PutUint32(value, lastProcessedTick.TickNumber)
-
-	err := batch.Set(key, value, pebble.Sync)
-	if err != nil {
-		return errors.Wrap(err, "setting last processed tick")
-	}
+	kvPairs[string(key)] = value
 
 	key = lastProcessedTickKey()
 	serialized, err := proto.Marshal(lastProcessedTick)
 	if err != nil {
 		return errors.Wrap(err, "serializing skipped tick proto")
 	}
+	kvPairs[string(key)] = serialized
 
-	err = batch.Set(key, serialized, pebble.Sync)
+	err = s.db.BatchSet(ctx, kvPairs)
 	if err != nil {
-		return errors.Wrap(err, "setting last processed tick")
-	}
-
-	err = batch.Commit(pebble.Sync)
-	if err != nil {
-		return errors.Wrap(err, "committing batch")
+		return errors.Wrap(err, "batch setting kv pairs")
 	}
 
 	ptie, err := s.getProcessedTickIntervalsPerEpoch(ctx, lastProcessedTick.Epoch)
@@ -136,17 +140,16 @@ func (s *Store) SetLastProcessedTick(ctx context.Context, lastProcessedTick *eve
 	return nil
 }
 
-func (s *Store) GetLastProcessedTick(ctx context.Context) (*eventspb.ProcessedTick, error) {
+func (s *StatusStore) GetLastProcessedTick(ctx context.Context) (*eventspb.ProcessedTick, error) {
 	key := lastProcessedTickKey()
-	value, closer, err := s.db.Get(key)
+	value, err := s.db.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, pebble.ErrNotFound) {
+		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNotFound
 		}
 
 		return nil, errors.Wrap(err, "getting last processed tick")
 	}
-	defer closer.Close()
 
 	var lpt eventspb.ProcessedTick
 	if err := proto.Unmarshal(value, &lpt); err != nil {
@@ -156,7 +159,7 @@ func (s *Store) GetLastProcessedTick(ctx context.Context) (*eventspb.ProcessedTi
 	return &lpt, nil
 }
 
-func (s *Store) AppendProcessedTickInterval(ctx context.Context, epoch uint32, pti *eventspb.ProcessedTickInterval) error {
+func (s *StatusStore) AppendProcessedTickInterval(ctx context.Context, epoch uint32, pti *eventspb.ProcessedTickInterval) error {
 	existing, err := s.getProcessedTickIntervalsPerEpoch(ctx, epoch)
 	if err != nil {
 		return errors.Wrap(err, "getting existing processed tick intervals")
@@ -172,17 +175,16 @@ func (s *Store) AppendProcessedTickInterval(ctx context.Context, epoch uint32, p
 	return nil
 }
 
-func (s *Store) getProcessedTickIntervalsPerEpoch(ctx context.Context, epoch uint32) (*eventspb.ProcessedTickIntervalsPerEpoch, error) {
+func (s *StatusStore) getProcessedTickIntervalsPerEpoch(ctx context.Context, epoch uint32) (*eventspb.ProcessedTickIntervalsPerEpoch, error) {
 	key := processedTickIntervalsPerEpochKey(epoch)
-	value, closer, err := s.db.Get(key)
+	value, err := s.db.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, pebble.ErrNotFound) {
+		if errors.Is(err, ErrNotFound) {
 			return &eventspb.ProcessedTickIntervalsPerEpoch{Intervals: make([]*eventspb.ProcessedTickInterval, 0), Epoch: epoch}, nil
 		}
 
 		return nil, errors.Wrap(err, "getting processed tick intervals per epoch from store")
 	}
-	defer closer.Close()
 
 	var ptie eventspb.ProcessedTickIntervalsPerEpoch
 	if err := proto.Unmarshal(value, &ptie); err != nil {
@@ -192,14 +194,14 @@ func (s *Store) getProcessedTickIntervalsPerEpoch(ctx context.Context, epoch uin
 	return &ptie, nil
 }
 
-func (s *Store) SetProcessedTickIntervalPerEpoch(ctx context.Context, epoch uint32, ptie *eventspb.ProcessedTickIntervalsPerEpoch) error {
+func (s *StatusStore) SetProcessedTickIntervalPerEpoch(ctx context.Context, epoch uint32, ptie *eventspb.ProcessedTickIntervalsPerEpoch) error {
 	key := processedTickIntervalsPerEpochKey(epoch)
 	serialized, err := proto.Marshal(ptie)
 	if err != nil {
 		return errors.Wrap(err, "serializing ptie proto")
 	}
 
-	err = s.db.Set(key, serialized, pebble.Sync)
+	err = s.db.Set(ctx, key, serialized)
 	if err != nil {
 		return errors.Wrap(err, "setting ptie")
 	}
@@ -207,7 +209,7 @@ func (s *Store) SetProcessedTickIntervalPerEpoch(ctx context.Context, epoch uint
 	return nil
 }
 
-func (s *Store) SetSkippedTicksInterval(ctx context.Context, skippedTick *eventspb.SkippedTicksInterval) error {
+func (s *StatusStore) SetSkippedTicksInterval(ctx context.Context, skippedTick *eventspb.SkippedTicksInterval) error {
 	newList := eventspb.SkippedTicksIntervalList{}
 	current, err := s.GetSkippedTicksInterval(ctx)
 	if err != nil {
@@ -226,7 +228,7 @@ func (s *Store) SetSkippedTicksInterval(ctx context.Context, skippedTick *events
 		return errors.Wrap(err, "serializing skipped tick proto")
 	}
 
-	err = s.db.Set(key, serialized, pebble.Sync)
+	err = s.db.Set(ctx, key, serialized)
 	if err != nil {
 		return errors.Wrap(err, "setting skipped tick interval")
 	}
@@ -234,9 +236,9 @@ func (s *Store) SetSkippedTicksInterval(ctx context.Context, skippedTick *events
 	return nil
 }
 
-func (s *Store) GetSkippedTicksInterval(ctx context.Context) (*eventspb.SkippedTicksIntervalList, error) {
+func (s *StatusStore) GetSkippedTicksInterval(ctx context.Context) (*eventspb.SkippedTicksIntervalList, error) {
 	key := skippedTicksIntervalKey()
-	value, closer, err := s.db.Get(key)
+	value, err := s.db.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return nil, ErrNotFound
@@ -244,7 +246,6 @@ func (s *Store) GetSkippedTicksInterval(ctx context.Context) (*eventspb.SkippedT
 
 		return nil, errors.Wrap(err, "getting skipped tick interval")
 	}
-	defer closer.Close()
 
 	var stil eventspb.SkippedTicksIntervalList
 	if err := proto.Unmarshal(value, &stil); err != nil {
@@ -254,24 +255,17 @@ func (s *Store) GetSkippedTicksInterval(ctx context.Context) (*eventspb.SkippedT
 	return &stil, nil
 }
 
-func (s *Store) GetProcessedTickIntervals(ctx context.Context) ([]*eventspb.ProcessedTickIntervalsPerEpoch, error) {
-	upperBound := append([]byte{ProcessedTickIntervals}, []byte(strconv.FormatUint(maxTickNumber, 10))...)
-	iter, err := s.db.NewIter(&pebble.IterOptions{
-		LowerBound: []byte{ProcessedTickIntervals},
-		UpperBound: upperBound,
-	})
+func (s *StatusStore) GetProcessedTickIntervals(ctx context.Context) ([]*eventspb.ProcessedTickIntervalsPerEpoch, error) {
+	start := 0
+	end := maxTickNumber
+
+	values, err := s.db.GetOrderedRange(ctx, []byte{ProcessedTickIntervals}, uint64(start), end)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating iter")
+		return nil, errors.Wrap(err, "getting processed tick intervals")
 	}
-	defer iter.Close()
 
 	processedTickIntervals := make([]*eventspb.ProcessedTickIntervalsPerEpoch, 0)
-	for iter.First(); iter.Valid(); iter.Next() {
-		value, err := iter.ValueAndErr()
-		if err != nil {
-			return nil, errors.Wrap(err, "getting value from iter")
-		}
-
+	for _, value := range values {
 		var ptie eventspb.ProcessedTickIntervalsPerEpoch
 		err = proto.Unmarshal(value, &ptie)
 		if err != nil {
@@ -283,19 +277,17 @@ func (s *Store) GetProcessedTickIntervals(ctx context.Context) ([]*eventspb.Proc
 	return processedTickIntervals, nil
 }
 
-func (s *Store) GetLastProcessedTicksPerEpoch(ctx context.Context) (map[uint32]uint32, error) {
-	upperBound := append([]byte{LastProcessedTickPerEpoch}, []byte(strconv.FormatUint(maxTickNumber, 10))...)
-	iter, err := s.db.NewIter(&pebble.IterOptions{
-		LowerBound: []byte{LastProcessedTickPerEpoch},
-		UpperBound: upperBound,
-	})
+func (s *StatusStore) GetLastProcessedTicksPerEpoch(ctx context.Context) (map[uint32]uint32, error) {
+	start := 0
+	end := maxEpochNumber
+
+	values, err := s.db.GetOrderedRange(ctx, []byte{LastProcessedTickPerEpoch}, uint64(start), end)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating iter")
+		return nil, errors.Wrap(err, "getting processed tick intervals")
 	}
-	defer iter.Close()
 
 	ticksPerEpoch := make(map[uint32]uint32)
-	for iter.First(); iter.Valid(); iter.Next() {
+	for _, value := range values {
 		key := iter.Key()
 
 		value, err := iter.ValueAndErr()

@@ -15,10 +15,10 @@ var _ eventspb.EventsServiceServer = &EventsService{}
 
 type EventsService struct {
 	eventspb.UnimplementedEventsServiceServer
-	eventsStore *store.Store
+	eventsStore *store.EventsStore
 }
 
-func NewEventsService(eventsStore *store.Store) *EventsService {
+func NewEventsService(eventsStore *store.EventsStore) *EventsService {
 	return &EventsService{eventsStore: eventsStore}
 }
 

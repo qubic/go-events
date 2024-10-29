@@ -20,7 +20,7 @@ type Server struct {
 	grpcServer     *grpc.Server
 }
 
-func NewServer(listenAddrGRPC, listenAddrHTTP string, eventsStore *store.Store) *Server {
+func NewServer(listenAddrGRPC, listenAddrHTTP string, eventsStore *store.EventsStore) *Server {
 	grpcServer := createGrpcServerAndRegisterServices(eventsStore)
 	server := Server{
 		listenAddrGRPC: listenAddrGRPC,
@@ -31,7 +31,7 @@ func NewServer(listenAddrGRPC, listenAddrHTTP string, eventsStore *store.Store) 
 	return &server
 }
 
-func createGrpcServerAndRegisterServices(eventsStore *store.Store) *grpc.Server {
+func createGrpcServerAndRegisterServices(eventsStore *store.EventsStore) *grpc.Server {
 	srv := grpc.NewServer(
 		grpc.MaxRecvMsgSize(600*1024*1024),
 		grpc.MaxSendMsgSize(600*1024*1024),

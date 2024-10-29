@@ -3,12 +3,15 @@ package store
 import "encoding/binary"
 
 const (
-	TickEvents                = 0x01
+	TickEventsCollection      = 0x00
+	TickProcessTimeCollection = 0x01
+)
+
+const (
 	LastProcessedTick         = 0x01
 	SkippedTicksInterval      = 0x02
 	ProcessedTickIntervals    = 0x03
 	LastProcessedTickPerEpoch = 0x04
-	TickProcessTime           = 0x05
 )
 
 func tickEventsKey(tickNumber uint32) []byte {

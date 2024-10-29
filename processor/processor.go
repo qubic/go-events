@@ -28,12 +28,12 @@ func (e *TickInTheFutureError) Error() string {
 
 type Processor struct {
 	qubicConnector     *connector.Connector
-	eventsStore        *store.Store
+	eventsStore        *store.EventsStore
 	passcode           [4]uint64
 	processTickTimeout time.Duration
 }
 
-func NewProcessor(qubicConnector *connector.Connector, eventsStore *store.Store, processTickTimeout time.Duration, passcode [4]uint64) *Processor {
+func NewProcessor(qubicConnector *connector.Connector, eventsStore *store.EventsStore, processTickTimeout time.Duration, passcode [4]uint64) *Processor {
 	return &Processor{
 		qubicConnector:     qubicConnector,
 		eventsStore:        eventsStore,

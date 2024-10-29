@@ -111,7 +111,7 @@ func run() error {
 	}
 	defer db.Close()
 
-	eventsStore := store.NewStore(db)
+	eventsStore := store.NewEventsStore(db)
 
 	var passcode [4]uint64
 	copy(passcode[:], cfg.Pool.NodePasscode)

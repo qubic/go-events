@@ -234,6 +234,8 @@ github.com/qubic/go-qubic v0.1.4-0.20241002201007-01f57bda2223 h1:+jOYO3jmWNeioE
 github.com/qubic/go-qubic v0.1.4-0.20241002201007-01f57bda2223/go.mod h1:6+8pmfKCl5HnZEXM1F8J19nP7gEc5b7bFbhuraN8WnE=
 github.com/qubic/go-qubic v0.1.4-0.20241002202021-958a2fbb2cb4 h1:T6e67/Whznmpl8KwUQ+dlby8WpIo9X9zTp/kP85mgVM=
 github.com/qubic/go-qubic v0.1.4-0.20241002202021-958a2fbb2cb4/go.mod h1:6+8pmfKCl5HnZEXM1F8J19nP7gEc5b7bFbhuraN8WnE=
+github.com/qubic/go-qubic v0.1.4-0.20241029121630-0bd3f87f4c75 h1:nM0TTY9XEoPb2d9xUY7t91EEgCTCTlhpup3csQKqdg0=
+github.com/qubic/go-qubic v0.1.4-0.20241029121630-0bd3f87f4c75/go.mod h1:6+8pmfKCl5HnZEXM1F8J19nP7gEc5b7bFbhuraN8WnE=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
 github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU5NdKM8=

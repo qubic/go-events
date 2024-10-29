@@ -7,7 +7,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.21.0
 	github.com/pkg/errors v0.9.1
-	github.com/qubic/go-qubic v0.1.4-0.20241002202021-958a2fbb2cb4
+	github.com/qubic/go-qubic v0.1.4-0.20241029121630-0bd3f87f4c75
 	google.golang.org/genproto/googleapis/api v0.0.0-20240730163845-b1a4ccb954bf
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2

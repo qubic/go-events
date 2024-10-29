@@ -64,6 +64,78 @@ message ProcessedTickIntervalsPerEpoch {
   repeated ProcessedTickInterval intervals = 2;
 }
 
+message DecodedEvent {
+  message QuTransferEvent {
+    string source_id = 1;
+    string dest_id = 2;
+    uint64 amount = 3;
+  }
+
+  message AssetIssuanceEvent {
+    string source_id = 1;
+    string asset_name = 2;
+    uint32 number_of_decimals = 3;
+    bytes measurement_unit = 4;
+    int64 number_of_shares = 5;
+  }
+
+  message AssetOwnershipChangeEvent {
+    string source_id = 1;
+    string dest_id = 2;
+    string issuer_id = 3;
+    string asset_name = 4;
+    uint32 number_of_decimals = 5;
+    bytes measurement_unit = 6;
+    int64 number_of_shares = 7;
+  }
+
+  message AssetPossessionChangeEvent {
+    string source_id = 1;
+    string dest_id = 2;
+    string issuer_id = 3;
+    string asset_name = 4;
+    uint32 number_of_decimals = 5;
+    bytes measurement_unit = 6;
+    int64 number_of_shares = 7;
+  }
+
+  message BurnEvent {
+    string source_id = 1;
+    uint64 amount = 2;
+  }
+
+  message DustBurnEvent {
+    uint32 number_of_burns = 1;
+    string source_id = 2;
+    uint64 amount = 3;
+  }
+
+  message SpectrumStatsEvent {
+    uint64 total_amount = 1;
+    uint64 dust_threshold_burn_all = 2;
+    uint64 dust_threshold_burn_half = 3;
+    uint32 number_of_entities = 4;
+    repeated uint32 entity_category_populations = 5;
+  }
+
+  message ContractMessageEvent {
+    uint32 contract_id = 1;
+    bytes message = 2;
+  }
+
+  oneof event {
+    QuTransferEvent qu_transfer_event = 1;
+    AssetIssuanceEvent asset_issuance_event = 2;
+    AssetOwnershipChangeEvent asset_ownership_change_event = 3;
+    AssetPossessionChangeEvent asset_possession_change_event = 4;
+    BurnEvent burn_event = 5;
+    DustBurnEvent dust_burn_event = 6;
+    SpectrumStatsEvent spectrum_stats_event = 7;
+    ContractMessageEvent contract_message_event = 8;
+  }
+}
+
+
 message GetTickEventsRequest {
   uint32 tick = 1;
 }
@@ -83,6 +155,15 @@ message GetStatusResponse {
   repeated ProcessedTickIntervalsPerEpoch processed_tick_intervals_per_epoch = 4;
 }
 
+message DecodeEventRequest {
+  uint32 event_type = 1;
+  string event_data = 2;
+}
+
+message DecodeEventResponse {
+  DecodedEvent decoded_event = 1;
+}
+
 service EventsService {
   rpc GetTickEvents(GetTickEventsRequest) returns (TickEvents) {
     option (google.api.http) = {
@@ -100,6 +181,13 @@ service EventsService {
   rpc GetTickProcessTime(GetTickProcessTimeRequest) returns (GetTickProcessTimeResponse) {
     option (google.api.http) = {
       post: "/v1/events/getTickProcessTime"
+      body: "*"
+    };
+  }
+
+  rpc DecodeEvent(DecodeEventRequest) returns (DecodeEventResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/decodeEvent"
       body: "*"
     };
   }

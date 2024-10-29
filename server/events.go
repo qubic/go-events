@@ -2,10 +2,13 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
 	eventspb "github.com/qubic/go-events/proto"
 	"github.com/qubic/go-events/store"
+	"github.com/qubic/go-qubic/common"
+	"github.com/qubic/go-qubic/sdk/events"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -142,6 +145,205 @@ func (s *EventsService) GetTickProcessTime(ctx context.Context, req *eventspb.Ge
 	}
 
 	return &eventspb.GetTickProcessTimeResponse{ProcessTimeSeconds: pt}, nil
+}
+
+func (s *EventsService) DecodeEvent(ctx context.Context, req *eventspb.DecodeEventRequest) (*eventspb.DecodeEventResponse, error) {
+	decodedEventData, err := base64.StdEncoding.DecodeString(req.EventData)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "decoding event data: %v", err)
+	}
+
+	decodedEvent, err := decodeEvent(uint8(req.EventType), decodedEventData)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "decoding event: %v", err)
+	}
+
+	return &eventspb.DecodeEventResponse{DecodedEvent: decodedEvent}, nil
+}
+
+func decodeEvent(eventType uint8, eventData []byte) (*eventspb.DecodedEvent, error) {
+	switch eventType {
+	case events.EventTypeQuTransfer:
+		var event events.QuTransferEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshalling qu transfer event")
+		}
+
+		sourceID, err := common.PubKeyToIdentity(event.SourceIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting source identity pubkey")
+		}
+
+		destID, err := common.PubKeyToIdentity(event.DestinationIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting destination identity pubkey")
+		}
+
+		pbEvent := eventspb.DecodedEvent_QuTransferEvent_{
+			QuTransferEvent: &eventspb.DecodedEvent_QuTransferEvent{
+				SourceId: sourceID.String(),
+				DestId:   destID.String(),
+				Amount:   event.Amount,
+			},
+		}
+
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+	case events.EventTypeAssetIssuance:
+		var event events.AssetIssuanceEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshalling asset issuance event")
+		}
+
+		sourceID, err := common.PubKeyToIdentity(event.SourceIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting source identity pubkey")
+		}
+
+		pbEvent := eventspb.DecodedEvent_AssetIssuanceEvent_{
+			AssetIssuanceEvent: &eventspb.DecodedEvent_AssetIssuanceEvent{
+				SourceId:         sourceID.String(),
+				AssetName:        string(event.AssetName[:]),
+				NumberOfDecimals: uint32(event.NumberOfDecimals),
+				MeasurementUnit:  event.MeasurementUnit[:],
+				NumberOfShares:   event.NumberOfShares,
+			},
+		}
+
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+	case events.EventTypeAssetOwnershipChange:
+		var event events.AssetOwnershipChangeEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshalling asset ownership change event")
+		}
+
+		sourceID, err := common.PubKeyToIdentity(event.SourceIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting source identity pubkey")
+		}
+
+		destID, err := common.PubKeyToIdentity(event.DestinationIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting destination identity pubkey")
+		}
+
+		issuerID, err := common.PubKeyToIdentity(event.IssuerIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting issuer identity pubkey")
+		}
+
+		pbEvent := eventspb.DecodedEvent_AssetOwnershipChangeEvent_{
+			AssetOwnershipChangeEvent: &eventspb.DecodedEvent_AssetOwnershipChangeEvent{
+				SourceId:         sourceID.String(),
+				DestId:           destID.String(),
+				IssuerId:         issuerID.String(),
+				AssetName:        string(event.AssetName[:]),
+				NumberOfDecimals: uint32(event.NumberOfDecimals),
+				MeasurementUnit:  event.MeasurementUnit[:],
+				NumberOfShares:   event.NumberOfShares,
+			},
+		}
+
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+	case events.EventTypeAssetPossessionChange:
+		var event events.AssetPossessionChangeEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshalling asset possession change event")
+		}
+
+		sourceID, err := common.PubKeyToIdentity(event.SourceIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting source identity pubkey")
+		}
+
+		destID, err := common.PubKeyToIdentity(event.DestinationIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting destination identity pubkey")
+		}
+
+		issuerID, err := common.PubKeyToIdentity(event.IssuerIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting issuer identity pubkey")
+		}
+
+		pbEvent := eventspb.DecodedEvent_AssetPossessionChangeEvent_{
+			AssetPossessionChangeEvent: &eventspb.DecodedEvent_AssetPossessionChangeEvent{
+				SourceId:         sourceID.String(),
+				DestId:           destID.String(),
+				IssuerId:         issuerID.String(),
+				AssetName:        string(event.AssetName[:]),
+				NumberOfDecimals: uint32(event.NumberOfDecimals),
+				MeasurementUnit:  event.MeasurementUnit[:],
+				NumberOfShares:   event.NumberOfShares,
+			},
+		}
+
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+	case events.EventTypeBurning:
+		var event events.BurningEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshalling burning event")
+		}
+
+		sourceID, err := common.PubKeyToIdentity(event.SourceIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting source identity pubkey")
+		}
+
+		pbEvent := eventspb.DecodedEvent_BurnEvent_{
+			BurnEvent: &eventspb.DecodedEvent_BurnEvent{
+				SourceId: sourceID.String(),
+				Amount:   event.Amount,
+			},
+		}
+
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+	case events.EventTypeDustBurning:
+		var event events.DustBurningEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshalling dust burning event")
+		}
+
+		sourceID, err := common.PubKeyToIdentity(event.SourceIdentityPubKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting source identity pubkey")
+		}
+
+		pbEvent := eventspb.DecodedEvent_DustBurnEvent_{
+			DustBurnEvent: &eventspb.DecodedEvent_DustBurnEvent{
+				NumberOfBurns: uint32(event.NumberOfBurns),
+				SourceId:      sourceID.String(),
+				Amount:        event.Amount,
+			},
+		}
+
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+	case events.EventTypeSpectrumStats:
+		var event events.SpectrumStatsEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, errors.Wrap(err, "unmarshalling spectrum stats event")
+		}
+
+		pbEvent := eventspb.DecodedEvent_SpectrumStatsEvent_{
+			SpectrumStatsEvent: &eventspb.DecodedEvent_SpectrumStatsEvent{
+				TotalAmount:               event.TotalAmount,
+				DustThresholdBurnAll:      event.DustThresholdBurnAll,
+				DustThresholdBurnHalf:     event.DustThresholdBurnHalf,
+				NumberOfEntities:          event.NumberOfEntities,
+				EntityCategoryPopulations: event.EntityCategoryPopulations[:],
+			},
+		}
+
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+	default:
+		return nil, errors.Errorf("not supported event type: %d", eventType)
+	}
 }
 
 func recast(a, b interface{}) error {

@@ -23,6 +23,7 @@ const (
 	EventsService_GetTickEvents_FullMethodName      = "/qubic.events.EventsService/GetTickEvents"
 	EventsService_GetStatus_FullMethodName          = "/qubic.events.EventsService/GetStatus"
 	EventsService_GetTickProcessTime_FullMethodName = "/qubic.events.EventsService/GetTickProcessTime"
+	EventsService_DecodeEvent_FullMethodName        = "/qubic.events.EventsService/DecodeEvent"
 )
 
 // EventsServiceClient is the client API for EventsService service.
@@ -32,6 +33,7 @@ type EventsServiceClient interface {
 	GetTickEvents(ctx context.Context, in *GetTickEventsRequest, opts ...grpc.CallOption) (*TickEvents, error)
 	GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetStatusResponse, error)
 	GetTickProcessTime(ctx context.Context, in *GetTickProcessTimeRequest, opts ...grpc.CallOption) (*GetTickProcessTimeResponse, error)
+	DecodeEvent(ctx context.Context, in *DecodeEventRequest, opts ...grpc.CallOption) (*DecodeEventResponse, error)
 }
 
 type eventsServiceClient struct {
@@ -69,6 +71,15 @@ func (c *eventsServiceClient) GetTickProcessTime(ctx context.Context, in *GetTic
 	return out, nil
 }
 
+func (c *eventsServiceClient) DecodeEvent(ctx context.Context, in *DecodeEventRequest, opts ...grpc.CallOption) (*DecodeEventResponse, error) {
+	out := new(DecodeEventResponse)
+	err := c.cc.Invoke(ctx, EventsService_DecodeEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EventsServiceServer is the server API for EventsService service.
 // All implementations must embed UnimplementedEventsServiceServer
 // for forward compatibility
@@ -76,6 +87,7 @@ type EventsServiceServer interface {
 	GetTickEvents(context.Context, *GetTickEventsRequest) (*TickEvents, error)
 	GetStatus(context.Context, *emptypb.Empty) (*GetStatusResponse, error)
 	GetTickProcessTime(context.Context, *GetTickProcessTimeRequest) (*GetTickProcessTimeResponse, error)
+	DecodeEvent(context.Context, *DecodeEventRequest) (*DecodeEventResponse, error)
 	mustEmbedUnimplementedEventsServiceServer()
 }
 
@@ -91,6 +103,9 @@ func (UnimplementedEventsServiceServer) GetStatus(context.Context, *emptypb.Empt
 }
 func (UnimplementedEventsServiceServer) GetTickProcessTime(context.Context, *GetTickProcessTimeRequest) (*GetTickProcessTimeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTickProcessTime not implemented")
+}
+func (UnimplementedEventsServiceServer) DecodeEvent(context.Context, *DecodeEventRequest) (*DecodeEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DecodeEvent not implemented")
 }
 func (UnimplementedEventsServiceServer) mustEmbedUnimplementedEventsServiceServer() {}
 
@@ -159,6 +174,24 @@ func _EventsService_GetTickProcessTime_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EventsService_DecodeEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DecodeEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EventsServiceServer).DecodeEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EventsService_DecodeEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventsServiceServer).DecodeEvent(ctx, req.(*DecodeEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // EventsService_ServiceDesc is the grpc.ServiceDesc for EventsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -177,6 +210,10 @@ var EventsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTickProcessTime",
 			Handler:    _EventsService_GetTickProcessTime_Handler,
+		},
+		{
+			MethodName: "DecodeEvent",
+			Handler:    _EventsService_DecodeEvent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/cockroachdb/pebble"
 	"github.com/qubic/go-events/processor"
+	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/server"
 	"github.com/qubic/go-events/store"
 	"github.com/qubic/go-qubic/connector"
@@ -50,6 +51,10 @@ func run() error {
 			NodePort           string        `conf:"default:21841"`
 			StorageFolder      string        `conf:"default:store"`
 			ProcessTickTimeout time.Duration `conf:"default:120s"`
+		}
+		PubSub struct {
+			Addr     string `conf:"default:localhost:6379"`
+			Password string `conf:"default:password"`
 		}
 	}
 
@@ -111,11 +116,16 @@ func run() error {
 	}
 	defer db.Close()
 
+	redisPubSubClient, err := pubsub.NewRedisPubSub(cfg.PubSub.Addr, cfg.PubSub.Password)
+	if err != nil {
+		return errors.Wrap(err, "creating redis pubsub client")
+	}
+
 	eventsStore := store.NewStore(db)
 
 	var passcode [4]uint64
 	copy(passcode[:], cfg.Pool.NodePasscode)
-	proc := processor.NewProcessor(conn, eventsStore, cfg.Qubic.ProcessTickTimeout, passcode)
+	proc := processor.NewProcessor(conn, redisPubSubClient, eventsStore, cfg.Qubic.ProcessTickTimeout, passcode)
 
 	srv := server.NewServer(cfg.Server.GrpcHost, cfg.Server.HttpHost, eventsStore)
 	err = srv.Start()

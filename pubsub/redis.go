@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	qubicpb "github.com/qubic/go-qubic/proto/v1"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/protobuf/encoding/protojson"
 	"strconv"
 	"time"
 )
@@ -49,7 +50,12 @@ func (ps *RedisPubSub) PublishTickEvents(ctx context.Context, tickEvents *qubicp
 }
 
 func (ps *RedisPubSub) publishAllTickEvents(ctx context.Context, tickEvents *qubicpb.TickEvents) error {
-	err := ps.rdb.Publish(ctx, "tickevents", tickEvents).Err()
+	data, err := protojson.Marshal(tickEvents)
+	if err != nil {
+		return errors.Wrap(err, "marshalling tick events")
+	}
+
+	err = ps.rdb.Publish(ctx, "tickevents", data).Err()
 	if err != nil {
 		return errors.Wrap(err, "publishing tick events")
 	}
@@ -60,7 +66,12 @@ func (ps *RedisPubSub) publishAllTickEvents(ctx context.Context, tickEvents *qub
 func (ps *RedisPubSub) publishTxEventsByType(ctx context.Context, txEvents *qubicpb.TransactionEvents) error {
 	for _, event := range txEvents.Events {
 		channelName := "eventsbytype" + strconv.FormatInt(int64(event.EventType), 10)
-		err := ps.rdb.Publish(ctx, channelName, event).Err()
+		data, err := protojson.Marshal(event)
+		if err != nil {
+			return errors.Wrapf(err, "marshalling data for event with type: %d id: %d", event.EventType, event.Header.EventId)
+		}
+
+		err = ps.rdb.Publish(ctx, channelName, data).Err()
 		if err != nil {
 			return errors.Wrapf(err, "publishing event with type: %d id: %d", event.EventType, event.Header.EventId)
 		}

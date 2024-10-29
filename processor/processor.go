@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	eventspb "github.com/qubic/go-events/proto"
+	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/store"
 	"github.com/qubic/go-qubic/connector"
 	qubicpb "github.com/qubic/go-qubic/proto/v1"
@@ -28,14 +29,16 @@ func (e *TickInTheFutureError) Error() string {
 
 type Processor struct {
 	qubicConnector     *connector.Connector
+	redisPubSubClient  *pubsub.RedisPubSub
 	eventsStore        *store.Store
 	passcode           [4]uint64
 	processTickTimeout time.Duration
 }
 
-func NewProcessor(qubicConnector *connector.Connector, eventsStore *store.Store, processTickTimeout time.Duration, passcode [4]uint64) *Processor {
+func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, eventsStore *store.Store, processTickTimeout time.Duration, passcode [4]uint64) *Processor {
 	return &Processor{
 		qubicConnector:     qubicConnector,
+		redisPubSubClient:  redisPubSubClient,
 		eventsStore:        eventsStore,
 		processTickTimeout: processTickTimeout,
 		passcode:           passcode,
@@ -99,6 +102,11 @@ func (p *Processor) processOneByOne() error {
 	err = p.processStatus(ctx, lastTick, nextTick)
 	if err != nil {
 		return errors.Wrapf(err, "processing status for lastTick %+v and nextTick %+v", lastTick, nextTick)
+	}
+
+	err = p.redisPubSubClient.PublishTickEvents(ctx, tickEvents)
+	if err != nil {
+		return errors.Wrap(err, "publishing tick events")
 	}
 
 	return nil

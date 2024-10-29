@@ -34,6 +34,10 @@ func NewRedisPubSub(addr string, password string) (*RedisPubSub, error) {
 }
 
 func (ps *RedisPubSub) PublishTickEvents(ctx context.Context, tickEvents *qubicpb.TickEvents) error {
+	if len(tickEvents.TxEvents) == 0 {
+		return nil
+	}
+
 	err := ps.publishAllTickEvents(ctx, tickEvents)
 	if err != nil {
 		return errors.Wrap(err, "publishing all tick events")

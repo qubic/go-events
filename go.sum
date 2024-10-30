@@ -234,6 +234,8 @@ github.com/prometheus/procfs v0.7.3 h1:4jVXhlkAyzOScmCkXBTOLRLTz8EeU+eyjrwB/EPq0
 github.com/prometheus/procfs v0.7.3/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1xBZuNvfVA=
 github.com/qubic/go-qubic v0.1.4-0.20241029121630-0bd3f87f4c75 h1:nM0TTY9XEoPb2d9xUY7t91EEgCTCTlhpup3csQKqdg0=
 github.com/qubic/go-qubic v0.1.4-0.20241029121630-0bd3f87f4c75/go.mod h1:6+8pmfKCl5HnZEXM1F8J19nP7gEc5b7bFbhuraN8WnE=
+github.com/qubic/go-qubic v0.1.4-0.20241030082827-d70a073f351d h1:5JTqoiC+IenkF8jiqWgv48Zx8KzQAYNq2yAX9+D9h88=
+github.com/qubic/go-qubic v0.1.4-0.20241030082827-d70a073f351d/go.mod h1:6+8pmfKCl5HnZEXM1F8J19nP7gEc5b7bFbhuraN8WnE=
 github.com/redis/go-redis/v9 v9.7.0 h1:HhLSs+B6O021gwzl+locl0zEDnyNkxMtf/Z3NNBMa9E=
 github.com/redis/go-redis/v9 v9.7.0/go.mod h1:f6zhXITC7JUJIlPEiBOTXxJgPLdZcA93GewI7inzyWw=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=

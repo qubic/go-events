@@ -83,7 +83,7 @@ func (p *Processor) processOneByOne() error {
 
 	eventsClient := events.NewClient(p.qubicConnector)
 	start := time.Now()
-	tickEvents, err := eventsClient.GetTickEventsOneByOne(ctx, p.passcode, nextTick.TickNumber)
+	tickEvents, err := eventsClient.GetTickEventsOneByOne(context.Background(), p.passcode, nextTick.TickNumber)
 	if err != nil {
 		return errors.Wrap(err, "getting tick events")
 	}

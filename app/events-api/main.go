@@ -35,7 +35,6 @@ func run() error {
 			HttpHost          string        `conf:"default:0.0.0.0:8000"`
 			GrpcHost          string        `conf:"default:0.0.0.0:8001"`
 			NodeSyncThreshold int           `conf:"default:3"`
-			ChainTickFetchUrl string        `conf:"default:http://127.0.0.1:8080/max-tick"`
 		}
 		Pool struct {
 			SingleNodeIP       string        `conf:"default:127.0.0.1"`
@@ -48,11 +47,14 @@ func run() error {
 			IdleTimeout        time.Duration `conf:"default:15s"`
 		}
 		Qubic struct {
-			NodePort           string        `conf:"default:21841"`
-			StorageFolder      string        `conf:"default:store"`
-			ProcessTickTimeout time.Duration `conf:"default:120s"`
+			NodePort              string        `conf:"default:21841"`
+			StorageFolder         string        `conf:"default:store"`
+			ConnectionTimeout     time.Duration `conf:"default:5s"`
+			HandlerRequestTimeout time.Duration `conf:"default:5s"`
+			ProcessTickTimeout    time.Duration `conf:"default:120s"`
 		}
 		PubSub struct {
+			Enabled  bool   `conf:"default:false"`
 			Addr     string `conf:"default:localhost:6379"`
 			Password string `conf:"default:password"`
 		}
@@ -84,13 +86,23 @@ func run() error {
 	}
 	log.Printf("main: Config :\n%v\n", out)
 
-	connectorConfig := connector.Config{
+	pfConfig := connector.PoolFetcherConfig{
+		URL:            cfg.Pool.NodeFetcherUrl,
+		RequestTimeout: cfg.Pool.NodeFetcherTimeout,
+	}
+	cConfig := connector.Config{
 		ConnectionPort:        cfg.Qubic.NodePort,
-		ConnectionTimeout:     5 * time.Second,
-		HandlerRequestTimeout: 5 * time.Second,
+		ConnectionTimeout:     cfg.Qubic.ConnectionTimeout,
+		HandlerRequestTimeout: cfg.Qubic.HandlerRequestTimeout,
+	}
+	pConfig := connector.PoolConfig{
+		InitialCap:  cfg.Pool.InitialCap,
+		MaxCap:      cfg.Pool.MaxCap,
+		MaxIdle:     cfg.Pool.MaxIdle,
+		IdleTimeout: cfg.Pool.IdleTimeout,
 	}
 
-	conn, err := connector.NewConnector(cfg.Pool.SingleNodeIP, connectorConfig)
+	pConn, err := connector.NewPoolConnector(pfConfig, cConfig, pConfig)
 	if err != nil {
 		return errors.Wrap(err, "creating connector")
 	}
@@ -116,16 +128,21 @@ func run() error {
 	}
 	defer db.Close()
 
-	redisPubSubClient, err := pubsub.NewRedisPubSub(cfg.PubSub.Addr, cfg.PubSub.Password)
-	if err != nil {
-		return errors.Wrap(err, "creating redis pubsub client")
+	var pubSubClient *pubsub.RedisPubSub
+	if cfg.PubSub.Enabled {
+		redisPubSubClient, err := pubsub.NewRedisPubSub(cfg.PubSub.Addr, cfg.PubSub.Password)
+		if err != nil {
+			return errors.Wrap(err, "creating redis pubsub client")
+		}
+
+		pubSubClient = redisPubSubClient
 	}
 
 	eventsStore := store.NewStore(db)
 
 	var passcode [4]uint64
 	copy(passcode[:], cfg.Pool.NodePasscode)
-	proc := processor.NewProcessor(conn, redisPubSubClient, eventsStore, cfg.Qubic.ProcessTickTimeout, passcode)
+	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcode)
 
 	srv := server.NewServer(cfg.Server.GrpcHost, cfg.Server.HttpHost, eventsStore)
 	err = srv.Start()

@@ -29,15 +29,17 @@ func (e *TickInTheFutureError) Error() string {
 
 type Processor struct {
 	qubicConnector     *connector.Connector
+	isPubSubEnabled    bool
 	redisPubSubClient  *pubsub.RedisPubSub
 	eventsStore        *store.Store
 	passcode           [4]uint64
 	processTickTimeout time.Duration
 }
 
-func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, eventsStore *store.Store, processTickTimeout time.Duration, passcode [4]uint64) *Processor {
+func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, isPubSubEnabled bool, eventsStore *store.Store, processTickTimeout time.Duration, passcode [4]uint64) *Processor {
 	return &Processor{
 		qubicConnector:     qubicConnector,
+		isPubSubEnabled:    isPubSubEnabled,
 		redisPubSubClient:  redisPubSubClient,
 		eventsStore:        eventsStore,
 		processTickTimeout: processTickTimeout,
@@ -83,7 +85,7 @@ func (p *Processor) processOneByOne() error {
 
 	eventsClient := events.NewClient(p.qubicConnector)
 	start := time.Now()
-	tickEvents, err := eventsClient.GetTickEventsOneByOne(context.Background(), p.passcode, nextTick.TickNumber)
+	tickEvents, err := eventsClient.GetTickEvents(context.Background(), p.passcode, nextTick.TickNumber)
 	if err != nil {
 		return errors.Wrap(err, "getting tick events")
 	}
@@ -104,9 +106,11 @@ func (p *Processor) processOneByOne() error {
 		return errors.Wrapf(err, "processing status for lastTick %+v and nextTick %+v", lastTick, nextTick)
 	}
 
-	err = p.redisPubSubClient.PublishTickEvents(ctx, tickEvents)
-	if err != nil {
-		return errors.Wrap(err, "publishing tick events")
+	if p.isPubSubEnabled {
+		err = p.redisPubSubClient.PublishTickEvents(ctx, tickEvents)
+		if err != nil {
+			return errors.Wrap(err, "publishing tick events")
+		}
 	}
 
 	return nil

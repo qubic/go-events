@@ -7,7 +7,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.21.0
 	github.com/pkg/errors v0.9.1
-	github.com/qubic/go-qubic v0.1.4-0.20241030082827-d70a073f351d
+	github.com/qubic/go-qubic v0.2.2
 	github.com/redis/go-redis/v9 v9.7.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240730163845-b1a4ccb954bf
 	google.golang.org/grpc v1.65.0
@@ -18,7 +18,7 @@ require (
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudflare/circl v1.3.8 // indirect
+	github.com/cloudflare/circl v1.5.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
@@ -41,8 +41,8 @@ require (
 	github.com/silenceper/pool v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
-	golang.org/x/net v0.26.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240725223205-93522f1f2a9f // indirect
 )

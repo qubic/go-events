@@ -64,7 +64,7 @@ func (p *Processor) processOneByOne() error {
 	coreClient := core.NewClient(p.qubicConnector)
 	tickInfo, err := coreClient.GetTickInfo(ctx)
 	if err != nil {
-		return errors.Wrap(err, "getting tick events")
+		return errors.Wrap(err, "getting tick info")
 	}
 
 	lastTick, err := p.getLastProcessedTick(ctx, tickInfo)

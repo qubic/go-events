@@ -7,6 +7,7 @@ import (
 	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/server"
 	"github.com/qubic/go-events/store"
+	"github.com/qubic/go-qubic/common"
 	"github.com/qubic/go-qubic/connector"
 	"log"
 	"os"
@@ -37,14 +38,14 @@ func run() error {
 			NodeSyncThreshold int           `conf:"default:3"`
 		}
 		Pool struct {
-			SingleNodeIP       string        `conf:"default:127.0.0.1"`
-			NodePasscode       []uint64      `conf:"default:1;1;1;1"`
-			NodeFetcherUrl     string        `conf:"default:http://127.0.0.1:8080/status"`
-			NodeFetcherTimeout time.Duration `conf:"default:2s"`
-			InitialCap         int           `conf:"default:5"`
-			MaxIdle            int           `conf:"default:20"`
-			MaxCap             int           `conf:"default:30"`
-			IdleTimeout        time.Duration `conf:"default:15s"`
+			SingleNodeIP       string            `conf:"default:127.0.0.1"`
+			NodePasscodes      map[string]string `conf:"default:127.0.0.1:AAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAE=;192.168.0.1:AAAAAAAAAAEAAAAAAAAAAgAAAAAAAAADAAAAAAAAAAQ="`
+			NodeFetcherUrl     string            `conf:"default:http://127.0.0.1:8080/status"`
+			NodeFetcherTimeout time.Duration     `conf:"default:2s"`
+			InitialCap         int               `conf:"default:5"`
+			MaxIdle            int               `conf:"default:20"`
+			MaxCap             int               `conf:"default:30"`
+			IdleTimeout        time.Duration     `conf:"default:15s"`
 		}
 		Qubic struct {
 			NodePort              string        `conf:"default:21841"`
@@ -140,9 +141,12 @@ func run() error {
 
 	eventsStore := store.NewStore(db)
 
-	var passcode [4]uint64
-	copy(passcode[:], cfg.Pool.NodePasscode)
-	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcode)
+	passcodes, err := convertPasscodesMapFromBase64ToRaw(cfg.Pool.NodePasscodes)
+	if err != nil {
+		return errors.Wrap(err, "converting passcodes from base64 to raw")
+	}
+
+	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes)
 
 	srv := server.NewServer(cfg.Server.GrpcHost, cfg.Server.HttpHost, eventsStore)
 	err = srv.Start()
@@ -170,4 +174,19 @@ func run() error {
 	}
 
 	return nil
+}
+
+func convertPasscodesMapFromBase64ToRaw(passcodesMap map[string]string) (map[string][4]uint64, error) {
+	passcodes := make(map[string][4]uint64)
+
+	for k, v := range passcodesMap {
+		decodedPasscode, err := common.DecodePasscodeFromBase64(v)
+		if err != nil {
+			return nil, errors.Wrapf(err, "decoding passcode for node %s", k)
+		}
+
+		passcodes[k] = decodedPasscode
+	}
+
+	return passcodes, nil
 }

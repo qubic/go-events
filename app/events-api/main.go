@@ -38,7 +38,8 @@ func run() error {
 			NodeSyncThreshold int           `conf:"default:3"`
 		}
 		Pool struct {
-			SingleNodeIP       string            `conf:"default:127.0.0.1"`
+			SingleNodeIP string `conf:"default:127.0.0.1"`
+			//NodePasscodes uses a format of "ip:passcodeInBase64" which will be then decoded to raw passcode [4]uint64
 			NodePasscodes      map[string]string `conf:"default:127.0.0.1:AAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAE=;192.168.0.1:AAAAAAAAAAEAAAAAAAAAAgAAAAAAAAADAAAAAAAAAAQ="`
 			NodeFetcherUrl     string            `conf:"default:http://127.0.0.1:8080/status"`
 			NodeFetcherTimeout time.Duration     `conf:"default:2s"`

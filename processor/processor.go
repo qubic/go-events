@@ -32,11 +32,11 @@ type Processor struct {
 	isPubSubEnabled    bool
 	redisPubSubClient  *pubsub.RedisPubSub
 	eventsStore        *store.Store
-	passcode           [4]uint64
+	passcode           map[string][4]uint64
 	processTickTimeout time.Duration
 }
 
-func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, isPubSubEnabled bool, eventsStore *store.Store, processTickTimeout time.Duration, passcode [4]uint64) *Processor {
+func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, isPubSubEnabled bool, eventsStore *store.Store, processTickTimeout time.Duration, passcode map[string][4]uint64) *Processor {
 	return &Processor{
 		qubicConnector:     qubicConnector,
 		isPubSubEnabled:    isPubSubEnabled,
@@ -83,9 +83,9 @@ func (p *Processor) processOneByOne() error {
 		return err
 	}
 
-	eventsClient := events.NewClient(p.qubicConnector)
+	eventsClient := events.NewClient(p.qubicConnector, p.passcode)
 	start := time.Now()
-	tickEvents, err := eventsClient.GetTickEvents(context.Background(), p.passcode, nextTick.TickNumber)
+	tickEvents, err := eventsClient.GetTickEvents(context.Background(), nextTick.TickNumber)
 	if err != nil {
 		return errors.Wrap(err, "getting tick events")
 	}

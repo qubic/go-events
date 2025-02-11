@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/cockroachdb/pebble"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/qubic/go-events/processor"
 	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/server"
@@ -10,6 +13,7 @@ import (
 	"github.com/qubic/go-qubic/common"
 	"github.com/qubic/go-qubic/connector"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,12 +34,15 @@ func main() {
 func run() error {
 	var cfg struct {
 		Server struct {
-			ReadTimeout       time.Duration `conf:"default:5s"`
-			WriteTimeout      time.Duration `conf:"default:5s"`
-			ShutdownTimeout   time.Duration `conf:"default:5s"`
-			HttpHost          string        `conf:"default:0.0.0.0:8000"`
-			GrpcHost          string        `conf:"default:0.0.0.0:8001"`
-			NodeSyncThreshold int           `conf:"default:3"`
+			ReadTimeout           time.Duration `conf:"default:5s"`
+			WriteTimeout          time.Duration `conf:"default:5s"`
+			ShutdownTimeout       time.Duration `conf:"default:5s"`
+			HttpHost              string        `conf:"default:0.0.0.0:8000"`
+			GrpcHost              string        `conf:"default:0.0.0.0:8001"`
+			NodeSyncThreshold     int           `conf:"default:3"`
+			MetricsUpdateInterval time.Duration `conf:"default:2s"`
+			MetricsInstanceLabel  string
+			MetricsAddress        string `conf:"default:0.0.0.0:2112"`
 		}
 		Pool struct {
 			SingleNodeIP string `conf:"default:127.0.0.1"`
@@ -87,6 +94,8 @@ func run() error {
 		return errors.Wrap(err, "generating config for output")
 	}
 	log.Printf("main: Config :\n%v\n", out)
+
+	createMetricsGauges(cfg.Server.MetricsInstanceLabel)
 
 	pfConfig := connector.PoolFetcherConfig{
 		URL:            cfg.Pool.NodeFetcherUrl,
@@ -149,6 +158,8 @@ func run() error {
 
 	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes)
 
+	setupMetricsRoutines(cfg.Server.MetricsAddress, cfg.Server.MetricsUpdateInterval, proc)
+
 	srv := server.NewServer(cfg.Server.GrpcHost, cfg.Server.HttpHost, eventsStore)
 	err = srv.Start()
 	if err != nil {
@@ -190,4 +201,62 @@ func convertPasscodesMapFromBase64ToRaw(passcodesMap map[string]string) (map[str
 	}
 
 	return passcodes, nil
+}
+
+var (
+	registry = prometheus.NewRegistry()
+	factory  = promauto.With(registry)
+
+	lastProcessedTick prometheus.Gauge
+	currentEpoch      prometheus.Gauge
+)
+
+func createMetricsGauges(instanceLabel string) {
+
+	var labels prometheus.Labels
+
+	if len(instanceLabel) != 0 {
+		labels = make(prometheus.Labels)
+		labels["name"] = instanceLabel
+	}
+
+	lastProcessedTick = factory.NewGauge(prometheus.GaugeOpts{
+		Name:        "qubic_events_last_processed_tick",
+		Help:        "The last tick processed by the events service.",
+		ConstLabels: labels,
+	})
+
+	currentEpoch = factory.NewGauge(prometheus.GaugeOpts{
+		Name:        "qubic_events_current_epoch",
+		Help:        "The current epoch of the last processed tick.",
+		ConstLabels: labels,
+	})
+}
+
+func setupMetricsRoutines(metricsAddress string, updateInterval time.Duration, proc *processor.Processor) {
+	go func() {
+		ticker := time.NewTicker(updateInterval)
+		for {
+			select {
+			case <-ticker.C:
+				lastTick := proc.LastProcessedTick.Get()
+				lastProcessedTick.Set(float64(lastTick.TickNumber))
+				currentEpoch.Set(float64(lastTick.Epoch))
+			}
+		}
+	}()
+
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.InstrumentMetricHandler(registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{})))
+
+		metricsServer := http.Server{
+			Addr:    metricsAddress,
+			Handler: mux,
+		}
+		err := metricsServer.ListenAndServe()
+		if err != nil {
+			log.Printf("Metrics server failed: %s\n", err)
+		}
+	}()
 }

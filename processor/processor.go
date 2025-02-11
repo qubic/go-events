@@ -10,7 +10,9 @@ import (
 	qubicpb "github.com/qubic/go-qubic/proto/v1"
 	"github.com/qubic/go-qubic/sdk/core"
 	"github.com/qubic/go-qubic/sdk/events"
+	"google.golang.org/protobuf/proto"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -34,6 +36,7 @@ type Processor struct {
 	eventsStore        *store.Store
 	passcodes          map[string][4]uint64
 	processTickTimeout time.Duration
+	LastProcessedTick  LastTick
 }
 
 func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, isPubSubEnabled bool, eventsStore *store.Store, processTickTimeout time.Duration, passcodes map[string][4]uint64) *Processor {
@@ -44,6 +47,7 @@ func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub
 		eventsStore:        eventsStore,
 		processTickTimeout: processTickTimeout,
 		passcodes:          passcodes,
+		LastProcessedTick:  LastTick{},
 	}
 }
 
@@ -70,6 +74,10 @@ func (p *Processor) processOneByOne() error {
 	lastTick, err := p.getLastProcessedTick(ctx, tickInfo)
 	if err != nil {
 		return errors.Wrap(err, "getting last processed tick")
+	}
+
+	if p.LastProcessedTick.Get() == nil {
+		p.LastProcessedTick.Set(lastTick)
 	}
 
 	nextTick, err := p.getNextProcessingTick(ctx, lastTick, tickInfo)
@@ -127,6 +135,8 @@ func (p *Processor) processStatus(ctx context.Context, lastTick *eventspb.Proces
 		return errors.Wrapf(err, "setting last processed tick %d", nextTick.TickNumber)
 	}
 
+	p.LastProcessedTick.Set(nextTick)
+
 	return nil
 }
 
@@ -180,4 +190,26 @@ func (p *Processor) processSkippedTicks(ctx context.Context, lastTick *eventspb.
 	}
 
 	return nil
+}
+
+type LastTick struct {
+	mutex sync.RWMutex
+	tick  *eventspb.ProcessedTick
+}
+
+func (lpt *LastTick) Set(tick *eventspb.ProcessedTick) {
+	lpt.mutex.Lock()
+	defer lpt.mutex.Unlock()
+
+	lpt.tick = tick
+}
+
+func (lpt *LastTick) Get() *eventspb.ProcessedTick {
+	lpt.mutex.RLock()
+	defer lpt.mutex.RUnlock()
+
+	if lpt.tick == nil {
+		return nil
+	}
+	return proto.Clone(lpt.tick).(*eventspb.ProcessedTick)
 }

@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"github.com/pkg/errors"
+	"github.com/qubic/go-events/metrics"
 	eventspb "github.com/qubic/go-events/proto"
 	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/store"
@@ -34,9 +35,10 @@ type Processor struct {
 	eventsStore        *store.Store
 	passcodes          map[string][4]uint64
 	processTickTimeout time.Duration
+	meters             *metrics.Metrics
 }
 
-func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, isPubSubEnabled bool, eventsStore *store.Store, processTickTimeout time.Duration, passcodes map[string][4]uint64) *Processor {
+func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub.RedisPubSub, isPubSubEnabled bool, eventsStore *store.Store, processTickTimeout time.Duration, passcodes map[string][4]uint64, meters *metrics.Metrics) *Processor {
 	return &Processor{
 		qubicConnector:     qubicConnector,
 		isPubSubEnabled:    isPubSubEnabled,
@@ -44,6 +46,7 @@ func NewProcessor(qubicConnector *connector.Connector, redisPubSubClient *pubsub
 		eventsStore:        eventsStore,
 		processTickTimeout: processTickTimeout,
 		passcodes:          passcodes,
+		meters:             meters,
 	}
 }
 
@@ -71,6 +74,9 @@ func (p *Processor) processOneByOne() error {
 	if err != nil {
 		return errors.Wrap(err, "getting last processed tick")
 	}
+
+	p.meters.SetLastProcessedTick(lastTick.TickNumber)
+	p.meters.SetCurrentEpoch(lastTick.Epoch)
 
 	nextTick, err := p.getNextProcessingTick(ctx, lastTick, tickInfo)
 	if err != nil {

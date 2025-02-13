@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/cockroachdb/pebble"
+	"github.com/qubic/go-events/metrics"
 	"github.com/qubic/go-events/processor"
 	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/server"
@@ -35,6 +36,7 @@ func run() error {
 			ShutdownTimeout   time.Duration `conf:"default:5s"`
 			HttpHost          string        `conf:"default:0.0.0.0:8000"`
 			GrpcHost          string        `conf:"default:0.0.0.0:8001"`
+			MetricsHost       string        `conf:"default:0.0.0.0:2112"`
 			NodeSyncThreshold int           `conf:"default:3"`
 		}
 		Pool struct {
@@ -87,6 +89,8 @@ func run() error {
 		return errors.Wrap(err, "generating config for output")
 	}
 	log.Printf("main: Config :\n%v\n", out)
+
+	meters := metrics.NewMetrics()
 
 	pfConfig := connector.PoolFetcherConfig{
 		URL:            cfg.Pool.NodeFetcherUrl,
@@ -147,7 +151,11 @@ func run() error {
 		return errors.Wrap(err, "converting passcodes from base64 to raw")
 	}
 
-	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes)
+	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes, meters)
+
+	log.Printf("Starting metrics server...\n")
+	metricsServer := server.NewMetricsServer(cfg.Server.MetricsHost)
+	metricsServer.Start()
 
 	srv := server.NewServer(cfg.Server.GrpcHost, cfg.Server.HttpHost, eventsStore)
 	err = srv.Start()

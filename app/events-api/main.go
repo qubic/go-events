@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/cockroachdb/pebble"
 	"github.com/qubic/go-events/metrics"
 	"github.com/qubic/go-events/processor"
+	eventspb "github.com/qubic/go-events/proto"
 	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/server"
 	"github.com/qubic/go-events/store"
@@ -62,6 +64,13 @@ func run() error {
 			Addr     string `conf:"default:localhost:6379"`
 			Password string `conf:"default:password"`
 		}
+		Metrics struct {
+			UpdateInterval time.Duration `conf:"default:2s"`
+		}
+		Dev struct {
+			StartingTick  uint32 `conf:"default:0"`
+			StartingEpoch uint32 `conf:"default:0"`
+		}
 	}
 
 	if err := conf.Parse(os.Args[1:], prefix, &cfg); err != nil {
@@ -89,8 +98,6 @@ func run() error {
 		return errors.Wrap(err, "generating config for output")
 	}
 	log.Printf("main: Config :\n%v\n", out)
-
-	meters := metrics.NewMetrics()
 
 	pfConfig := connector.PoolFetcherConfig{
 		URL:            cfg.Pool.NodeFetcherUrl,
@@ -146,12 +153,26 @@ func run() error {
 
 	eventsStore := store.NewStore(db)
 
+	//TODO: Remove
+	if cfg.Dev.StartingTick != 0 {
+		err = eventsStore.SetLastProcessedTick(context.Background(), &eventspb.ProcessedTick{
+			TickNumber: cfg.Dev.StartingTick,
+			Epoch:      cfg.Dev.StartingEpoch,
+		})
+		if err != nil {
+			return errors.Wrap(err, "overriding values for development purposes")
+		}
+	}
+
 	passcodes, err := convertPasscodesMapFromBase64ToRaw(cfg.Pool.NodePasscodes)
 	if err != nil {
 		return errors.Wrap(err, "converting passcodes from base64 to raw")
 	}
 
-	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes, meters)
+	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes)
+
+	meters := metrics.NewMetricsService(eventsStore, cfg.Metrics.UpdateInterval)
+	meters.Start()
 
 	log.Printf("Starting metrics server...\n")
 	metricsServer := server.NewMetricsServer(cfg.Server.MetricsHost)

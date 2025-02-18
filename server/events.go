@@ -26,7 +26,7 @@ func NewEventsService(eventsStore *store.Store) *EventsService {
 }
 
 func (s *EventsService) GetTickEvents(ctx context.Context, req *eventspb.GetTickEventsRequest) (*eventspb.TickEvents, error) {
-	lastProcessedTick, err := s.eventsStore.GetLastProcessedTick(ctx)
+	lastProcessedTick, err := s.eventsStore.FetchLastProcessedTick()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting last processed tick: %v", err)
 	}
@@ -71,7 +71,7 @@ func (s *EventsService) GetTickEvents(ctx context.Context, req *eventspb.GetTick
 }
 
 func (s *EventsService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*eventspb.GetStatusResponse, error) {
-	tick, err := s.eventsStore.GetLastProcessedTick(ctx)
+	tick, err := s.eventsStore.FetchLastProcessedTick()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting last processed tick: %v", err)
 	}
@@ -109,7 +109,7 @@ func (s *EventsService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*event
 }
 
 func (s *EventsService) GetTickProcessTime(ctx context.Context, req *eventspb.GetTickProcessTimeRequest) (*eventspb.GetTickProcessTimeResponse, error) {
-	lastProcessedTick, err := s.eventsStore.GetLastProcessedTick(ctx)
+	lastProcessedTick, err := s.eventsStore.FetchLastProcessedTick()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting last processed tick: %v", err)
 	}

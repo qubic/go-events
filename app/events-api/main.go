@@ -64,9 +64,6 @@ func run() error {
 			Addr     string `conf:"default:localhost:6379"`
 			Password string `conf:"default:password"`
 		}
-		Metrics struct {
-			UpdateInterval time.Duration `conf:"default:2s"`
-		}
 		Dev struct {
 			StartingTick  uint32 `conf:"default:0"`
 			StartingEpoch uint32 `conf:"default:0"`
@@ -171,12 +168,9 @@ func run() error {
 
 	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes)
 
-	meters := metrics.NewMetricsService(eventsStore, cfg.Metrics.UpdateInterval)
-	meters.Start()
-
-	log.Printf("Starting metrics server...\n")
-	metricsServer := server.NewMetricsServer(cfg.Server.MetricsHost)
-	metricsServer.Start()
+	log.Printf("Starting metrics service...\n")
+	metricsService := metrics.NewMetricsService(cfg.Server.MetricsHost, eventsStore)
+	metricsService.Start()
 
 	srv := server.NewServer(cfg.Server.GrpcHost, cfg.Server.HttpHost, eventsStore)
 	err = srv.Start()

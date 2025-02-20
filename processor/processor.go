@@ -58,59 +58,68 @@ func (p *Processor) Start() error {
 }
 
 func (p *Processor) processOneByOne() error {
-	ctx, cancel := context.WithTimeout(context.Background(), p.processTickTimeout)
-	defer cancel()
+	f := func(rp connector.RequestPerformer) error {
+		ctx, cancel := context.WithTimeout(context.Background(), p.processTickTimeout)
+		defer cancel()
 
-	coreClient := core.NewClient(p.qubicConnector)
-	tickInfo, err := coreClient.GetTickInfo(ctx)
-	if err != nil {
-		return errors.Wrap(err, "getting tick info")
-	}
-
-	lastTick, err := p.getLastProcessedTick(ctx, tickInfo)
-	if err != nil {
-		return errors.Wrap(err, "getting last processed tick")
-	}
-
-	nextTick, err := p.getNextProcessingTick(ctx, lastTick, tickInfo)
-	if err != nil {
-		return errors.Wrap(err, "getting next processing tick")
-	}
-	log.Printf("Next tick to process: %d\n", nextTick.TickNumber)
-
-	if tickInfo.Tick < nextTick.TickNumber {
-		err = newTickInTheFutureError(nextTick.TickNumber, tickInfo.Tick)
-		return err
-	}
-
-	eventsClient := events.NewClient(p.qubicConnector, p.passcodes)
-	start := time.Now()
-	tickEvents, err := eventsClient.GetTickEvents(context.Background(), nextTick.TickNumber)
-	if err != nil {
-		return errors.Wrap(err, "getting tick events")
-	}
-	end := time.Now()
-
-	err = p.eventsStore.SetTickEvents(nextTick.TickNumber, tickEvents)
-	if err != nil {
-		return errors.Wrap(err, "setting tick events")
-	}
-
-	err = p.eventsStore.SetTickProcessTime(nextTick.TickNumber, uint64(end.Sub(start).Seconds()))
-	if err != nil {
-		return errors.Wrap(err, "setting tick process time")
-	}
-
-	err = p.processStatus(ctx, lastTick, nextTick)
-	if err != nil {
-		return errors.Wrapf(err, "processing status for lastTick %+v and nextTick %+v", lastTick, nextTick)
-	}
-
-	if p.isPubSubEnabled {
-		err = p.redisPubSubClient.PublishTickEvents(ctx, tickEvents)
+		coreClient := core.NewClient(rp)
+		tickInfo, err := coreClient.GetTickInfo(ctx)
 		if err != nil {
-			return errors.Wrap(err, "publishing tick events")
+			return errors.Wrap(err, "getting tick info")
 		}
+
+		lastTick, err := p.getLastProcessedTick(ctx, tickInfo)
+		if err != nil {
+			return errors.Wrap(err, "getting last processed tick")
+		}
+
+		nextTick, err := p.getNextProcessingTick(ctx, lastTick, tickInfo)
+		if err != nil {
+			return errors.Wrap(err, "getting next processing tick")
+		}
+		log.Printf("Next tick to process: %d\n", nextTick.TickNumber)
+
+		if tickInfo.Tick < nextTick.TickNumber {
+			err = newTickInTheFutureError(nextTick.TickNumber, tickInfo.Tick)
+			return err
+		}
+
+		eventsClient := events.NewClient(rp, p.passcodes)
+		start := time.Now()
+		tickEvents, err := eventsClient.GetTickEvents(context.Background(), nextTick.TickNumber)
+		if err != nil {
+			return errors.Wrap(err, "getting tick events")
+		}
+		end := time.Now()
+
+		err = p.eventsStore.SetTickEvents(nextTick.TickNumber, tickEvents)
+		if err != nil {
+			return errors.Wrap(err, "setting tick events")
+		}
+
+		err = p.eventsStore.SetTickProcessTime(nextTick.TickNumber, uint64(end.Sub(start).Seconds()))
+		if err != nil {
+			return errors.Wrap(err, "setting tick process time")
+		}
+
+		err = p.processStatus(ctx, lastTick, nextTick)
+		if err != nil {
+			return errors.Wrapf(err, "processing status for lastTick %+v and nextTick %+v", lastTick, nextTick)
+		}
+
+		if p.isPubSubEnabled {
+			err = p.redisPubSubClient.PublishTickEvents(ctx, tickEvents)
+			if err != nil {
+				return errors.Wrap(err, "publishing tick events")
+			}
+		}
+
+		return nil
+	}
+
+	err := p.qubicConnector.WithConnection(f)
+	if err != nil {
+		return errors.Wrap(err, "performing WithConnection logic")
 	}
 
 	return nil

@@ -31,7 +31,7 @@ type Service struct {
 func NewMetricsService(address string, store Store) *Service {
 	return &Service{
 		address: address,
-		cache:   ttlcache.New[string, uint32](ttlcache.WithTTL[string, uint32](5 * time.Second)), // TODO: maybe find a better value?
+		cache:   ttlcache.New[string, uint32](ttlcache.WithTTL[string, uint32](5 * time.Second)),
 		store:   store,
 		lastProcessedTickGauge: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "qubic_events_last_processed_tick",

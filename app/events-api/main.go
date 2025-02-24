@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"github.com/cockroachdb/pebble"
 	"github.com/qubic/go-events/metrics"
 	"github.com/qubic/go-events/processor"
-	eventspb "github.com/qubic/go-events/proto"
 	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/server"
 	"github.com/qubic/go-events/store"
@@ -63,10 +61,6 @@ func run() error {
 			Enabled  bool   `conf:"default:false"`
 			Addr     string `conf:"default:localhost:6379"`
 			Password string `conf:"default:password"`
-		}
-		Dev struct {
-			StartingTick  uint32 `conf:"default:0"`
-			StartingEpoch uint32 `conf:"default:0"`
 		}
 	}
 
@@ -149,17 +143,6 @@ func run() error {
 	}
 
 	eventsStore := store.NewStore(db)
-
-	//TODO: Remove
-	if cfg.Dev.StartingTick != 0 {
-		err = eventsStore.SetLastProcessedTick(context.Background(), &eventspb.ProcessedTick{
-			TickNumber: cfg.Dev.StartingTick,
-			Epoch:      cfg.Dev.StartingEpoch,
-		})
-		if err != nil {
-			return errors.Wrap(err, "overriding values for development purposes")
-		}
-	}
 
 	passcodes, err := convertPasscodesMapFromBase64ToRaw(cfg.Pool.NodePasscodes)
 	if err != nil {

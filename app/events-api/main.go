@@ -151,7 +151,7 @@ func run() error {
 
 	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes)
 
-	log.Printf("Starting metrics service...\n")
+	log.Printf("Starting metrics service...")
 	metricsService := metrics.NewMetricsService(cfg.Server.MetricsHost, eventsStore)
 	metricsService.Start()
 

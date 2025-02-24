@@ -151,7 +151,7 @@ func (p *Processor) getNextProcessingTick(ctx context.Context, lastTick *eventsp
 }
 
 func (p *Processor) getLastProcessedTick(ctx context.Context, currentTickInfo *qubicpb.TickInfo) (*eventspb.ProcessedTick, error) {
-	lastTick, err := p.eventsStore.GetLastProcessedTick(ctx)
+	lastTick, err := p.eventsStore.FetchLastProcessedTick()
 	if err != nil {
 		//handles first run of the events processor where there is nothing in storage
 		// in this case last tick is 0 and epoch is current tick info epoch

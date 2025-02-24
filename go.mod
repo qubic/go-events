@@ -8,7 +8,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.21.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.0
-	github.com/qubic/go-qubic v0.3.0
+	github.com/qubic/go-qubic v0.3.1-0.20250222144415-75a5ac1cefb9
 	github.com/redis/go-redis/v9 v9.7.0
 	golang.org/x/sync v0.10.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240730163845-b1a4ccb954bf

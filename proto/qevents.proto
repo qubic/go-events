@@ -77,6 +77,7 @@ message DecodedEvent {
     uint32 number_of_decimals = 3;
     bytes measurement_unit = 4;
     int64 number_of_shares = 5;
+    int64 managing_contract_index = 6;
   }
 
   message AssetOwnershipChangeEvent {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	eventspb "github.com/qubic/go-events/proto"
 	"github.com/qubic/go-events/store"
@@ -203,11 +204,12 @@ func decodeEvent(eventType uint8, eventData []byte) (*eventspb.DecodedEvent, err
 
 		pbEvent := eventspb.DecodedEvent_AssetIssuanceEvent_{
 			AssetIssuanceEvent: &eventspb.DecodedEvent_AssetIssuanceEvent{
-				SourceId:         sourceID.String(),
-				AssetName:        string(event.AssetName[:]),
-				NumberOfDecimals: uint32(event.NumberOfDecimals),
-				MeasurementUnit:  event.MeasurementUnit[:],
-				NumberOfShares:   event.NumberOfShares,
+				SourceId:              sourceID.String(),
+				AssetName:             string(event.AssetName[:]),
+				NumberOfDecimals:      uint32(event.NumberOfDecimals),
+				MeasurementUnit:       event.MeasurementUnit[:],
+				NumberOfShares:        event.NumberOfShares,
+				ManagingContractIndex: event.ManagingContractIndex,
 			},
 		}
 

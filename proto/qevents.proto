@@ -88,6 +88,7 @@ message DecodedEvent {
     uint32 number_of_decimals = 5;
     bytes measurement_unit = 6;
     int64 number_of_shares = 7;
+    int64 managing_contract_index = 8;
   }
 
   message AssetPossessionChangeEvent {
@@ -98,6 +99,7 @@ message DecodedEvent {
     uint32 number_of_decimals = 5;
     bytes measurement_unit = 6;
     int64 number_of_shares = 7;
+    int64 managing_contract_index = 8;
   }
 
   message BurnEvent {

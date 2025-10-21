@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/cockroachdb/pebble"
+	"github.com/qubic/go-events/metrics"
 	"github.com/qubic/go-events/processor"
 	"github.com/qubic/go-events/pubsub"
 	"github.com/qubic/go-events/server"
@@ -35,6 +36,7 @@ func run() error {
 			ShutdownTimeout   time.Duration `conf:"default:5s"`
 			HttpHost          string        `conf:"default:0.0.0.0:8000"`
 			GrpcHost          string        `conf:"default:0.0.0.0:8001"`
+			MetricsHost       string        `conf:"default:0.0.0.0:2112"`
 			NodeSyncThreshold int           `conf:"default:3"`
 		}
 		Pool struct {
@@ -148,6 +150,10 @@ func run() error {
 	}
 
 	proc := processor.NewProcessor(pConn, pubSubClient, cfg.PubSub.Enabled, eventsStore, cfg.Qubic.ProcessTickTimeout, passcodes)
+
+	log.Printf("Starting metrics service...")
+	metricsService := metrics.NewMetricsService(cfg.Server.MetricsHost, eventsStore)
+	metricsService.Start()
 
 	srv := server.NewServer(cfg.Server.GrpcHost, cfg.Server.HttpHost, eventsStore)
 	err = srv.Start()

@@ -6,9 +6,10 @@ require (
 	github.com/ardanlabs/conf v1.5.0
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.21.0
+	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.0
-	github.com/qubic/go-qubic v0.3.1-0.20250222144415-75a5ac1cefb9
+	github.com/qubic/go-qubic v0.3.2
 	github.com/redis/go-redis/v9 v9.7.0
 	golang.org/x/sync v0.10.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240730163845-b1a4ccb954bf
@@ -31,7 +32,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/jellydator/ttlcache/v3 v3.3.0 // indirect
 	github.com/klauspost/compress v1.16.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect

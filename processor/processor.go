@@ -2,6 +2,9 @@ package processor
 
 import (
 	"context"
+	"log"
+	"time"
+
 	"github.com/pkg/errors"
 	eventspb "github.com/qubic/go-events/proto"
 	"github.com/qubic/go-events/pubsub"
@@ -10,8 +13,6 @@ import (
 	qubicpb "github.com/qubic/go-qubic/proto/v1"
 	"github.com/qubic/go-qubic/sdk/core"
 	"github.com/qubic/go-qubic/sdk/events"
-	"log"
-	"time"
 )
 
 func newTickInTheFutureError(requestedTick uint32, latestTick uint32) *TickInTheFutureError {
@@ -151,7 +152,7 @@ func (p *Processor) getNextProcessingTick(ctx context.Context, lastTick *eventsp
 }
 
 func (p *Processor) getLastProcessedTick(ctx context.Context, currentTickInfo *qubicpb.TickInfo) (*eventspb.ProcessedTick, error) {
-	lastTick, err := p.eventsStore.FetchLastProcessedTick()
+	lastTick, err := p.eventsStore.GetLastProcessedTick()
 	if err != nil {
 		//handles first run of the events processor where there is nothing in storage
 		// in this case last tick is 0 and epoch is current tick info epoch

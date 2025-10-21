@@ -1,22 +1,23 @@
 package metrics
 
 import (
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	eventspb "github.com/qubic/go-events/proto"
-	"log"
-	"net/http"
-	"time"
 )
 
 const lptCacheKey = "LPT"
 const epochCacheKey = "EPOCH"
 
 type Store interface {
-	FetchLastProcessedTick() (*eventspb.ProcessedTick, error)
+	GetLastProcessedTick() (*eventspb.ProcessedTick, error)
 }
 
 type Service struct {
@@ -69,7 +70,7 @@ func (s *Service) Start() {
 
 func (s *Service) refreshCache() error {
 
-	lpt, err := s.store.FetchLastProcessedTick()
+	lpt, err := s.store.GetLastProcessedTick()
 	if err != nil {
 		return errors.Wrap(err, "fetching last processed tick")
 	}

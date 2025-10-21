@@ -3,20 +3,18 @@ package store
 import (
 	"context"
 	"encoding/binary"
+	"strconv"
+
 	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
 	eventspb "github.com/qubic/go-events/proto"
 	qubicpb "github.com/qubic/go-qubic/proto/v1"
-	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/proto"
-	"strconv"
 )
 
 const maxTickNumber = ^uint64(0)
 
 var ErrNotFound = errors.New("store resource not found")
-
-var group singleflight.Group
 
 type Store struct {
 	db *pebble.DB
@@ -139,17 +137,7 @@ func (s *Store) SetLastProcessedTick(ctx context.Context, lastProcessedTick *eve
 	return nil
 }
 
-func (s *Store) FetchLastProcessedTick() (*eventspb.ProcessedTick, error) {
-
-	value, err, _ := group.Do("key-fetch-lpt", s.GetLastProcessedTick)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetching last processed tick")
-	}
-
-	return value.(*eventspb.ProcessedTick), err
-}
-
-func (s *Store) GetLastProcessedTick() (interface{}, error) {
+func (s *Store) GetLastProcessedTick() (*eventspb.ProcessedTick, error) {
 	key := lastProcessedTickKey()
 	value, closer, err := s.db.Get(key)
 	if err != nil {

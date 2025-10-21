@@ -10,6 +10,7 @@ import (
 	"github.com/qubic/go-events/store"
 	"github.com/qubic/go-qubic/common"
 	"github.com/qubic/go-qubic/sdk/events"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -19,7 +20,8 @@ var _ eventspb.EventsServiceServer = &EventsService{}
 
 type EventsService struct {
 	eventspb.UnimplementedEventsServiceServer
-	eventsStore *store.Store
+	eventsStore       *store.Store
+	singleFlightGroup singleflight.Group
 }
 
 func NewEventsService(eventsStore *store.Store) *EventsService {
@@ -27,7 +29,7 @@ func NewEventsService(eventsStore *store.Store) *EventsService {
 }
 
 func (s *EventsService) GetTickEvents(ctx context.Context, req *eventspb.GetTickEventsRequest) (*eventspb.TickEvents, error) {
-	lastProcessedTick, err := s.eventsStore.FetchLastProcessedTick()
+	lastProcessedTick, err := s.FetchLastProcessedTick()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting last processed tick: %v", err)
 	}
@@ -72,7 +74,7 @@ func (s *EventsService) GetTickEvents(ctx context.Context, req *eventspb.GetTick
 }
 
 func (s *EventsService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*eventspb.GetStatusResponse, error) {
-	tick, err := s.eventsStore.FetchLastProcessedTick()
+	tick, err := s.FetchLastProcessedTick()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting last processed tick: %v", err)
 	}
@@ -110,7 +112,7 @@ func (s *EventsService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*event
 }
 
 func (s *EventsService) GetTickProcessTime(ctx context.Context, req *eventspb.GetTickProcessTimeRequest) (*eventspb.GetTickProcessTimeResponse, error) {
-	lastProcessedTick, err := s.eventsStore.FetchLastProcessedTick()
+	lastProcessedTick, err := s.FetchLastProcessedTick()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting last processed tick: %v", err)
 	}
@@ -373,4 +375,19 @@ func wasTickSkippedBySystem(tick uint32, processedTicksIntervalPerEpoch []*event
 		}
 	}
 	return false, 0
+}
+
+func (s *EventsService) FetchLastProcessedTick() (*eventspb.ProcessedTick, error) {
+
+	value, err, _ := s.singleFlightGroup.Do("key-fetch-lpt", s.getLastProcessedTickAsInterface)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetching last processed tick")
+	}
+
+	return value.(*eventspb.ProcessedTick), err
+}
+
+func (s *EventsService) getLastProcessedTickAsInterface() (interface{}, error) {
+	value, err := s.eventsStore.GetLastProcessedTick()
+	return value, err
 }

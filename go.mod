@@ -9,7 +9,7 @@ require (
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
-	github.com/qubic/go-qubic v0.3.3-0.20251105104323-601be86b0627
+	github.com/qubic/go-qubic v0.3.3
 	github.com/redis/go-redis/v9 v9.16.0
 	golang.org/x/sync v0.17.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20251103181224-f26f9409b101

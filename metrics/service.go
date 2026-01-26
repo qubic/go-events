@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	eventspb "github.com/qubic/go-events/proto"
+	"github.com/qubic/go-events/store"
 )
 
 const lptCacheKey = "LPT"
@@ -86,7 +87,12 @@ func (s *Service) metricsEndpointHandler() http.Handler {
 	if !s.cache.Has(lptCacheKey) || !s.cache.Has(epochCacheKey) {
 		err := s.refreshCache()
 		if err != nil {
-			log.Printf("Failed to refresh metrics cache: %s\n", err)
+			if !errors.Is(err, store.ErrNotFound) {
+				log.Printf("Failed to refresh metrics cache: %s\n", err)
+				panic(err)
+			}
+			s.cache.Set(lptCacheKey, 0, ttlcache.DefaultTTL)
+			s.cache.Set(epochCacheKey, 0, ttlcache.DefaultTTL)
 		}
 	}
 

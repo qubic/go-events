@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 	eventspb "github.com/qubic/go-events/proto"
@@ -99,7 +100,7 @@ func (s *EventsService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*event
 	}
 
 	var epochs []uint32
-	for epoch, _ := range lastProcessedTicksPerEpoch {
+	for epoch := range lastProcessedTicksPerEpoch {
 		epochs = append(epochs, epoch)
 	}
 
@@ -347,6 +348,46 @@ func decodeEvent(eventType uint8, eventData []byte) (*eventspb.DecodedEvent, err
 		}
 
 		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+
+	case events.EventTypeContractReserveDeduction:
+		var event events.ContractReserveDeductionEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshalling contract reserve deduction event: %w", err)
+		}
+
+		pbEvent := eventspb.DecodedEvent_ContractReserveDeductionEvent_{
+			ContractReserveDeductionEvent: &eventspb.DecodedEvent_ContractReserveDeductionEvent{
+				DeductedAmount:  event.DeductedAmount,
+				RemainingAmount: event.RemainingAmount,
+				ContractIndex:   event.ContractIndex,
+			},
+		}
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+
+	case events.EventTypeOracleQueryStatusChange:
+		var event events.OracleQueryStatusChangeEvent
+		err := event.UnmarshalBinary(eventData)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshalling oracle query status change event: %w", err)
+		}
+
+		queryingIdentityID, err := common.PubKeyToIdentity(event.QueryingEntity)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting querying entity pubkey")
+		}
+
+		pbEvent := eventspb.DecodedEvent_OracleQueryStatusChangeEvent_{
+			OracleQueryStatusChangeEvent: &eventspb.DecodedEvent_OracleQueryStatusChangeEvent{
+				QueryingEntityId: queryingIdentityID.String(),
+				QueryId:          event.QueryID,
+				InterfaceIndex:   event.InterfaceIndex,
+				Type:             uint32(event.Type),
+				Status:           uint32(event.Status),
+			},
+		}
+		return &eventspb.DecodedEvent{Event: &pbEvent}, nil
+
 	default:
 		return nil, errors.Errorf("not supported event type: %d", eventType)
 	}
